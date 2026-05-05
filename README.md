@@ -50,9 +50,9 @@ See `docker-compose.yaml` for complete list of configurable options.
 
 ## 📂 Volumes
 
-- `./rootfs/data/formbricks` - Data storage
-- `./rootfs/config/formbricks` - Data storage
-- `./rootfs/data/db/postgres/formbricks` - Data storage
+- `./volumes/data/formbricks` - Data storage
+- `./volumes/config/formbricks` - Data storage
+- `./volumes/data/db/postgres/formbricks` - Data storage
 
 ## 🔐 Security
 

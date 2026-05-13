@@ -1,5 +1,6 @@
 # nginx proxy address - http://172.17.0.1:8095
 
+name: formbricks
 x-logging: &default-logging
   driver: json-file
   options:
@@ -9,18 +10,28 @@ x-logging: &default-logging
 services:
   formbricks:
     image: formbricks/formbricks:latest
+    pull_policy: always
     container_name: formbricks-app
-    restart: unless-stopped
+    restart: always
     logging: *default-logging
     networks:
       - formbricks
     ports:
-      - "8095:3000"
+      - "172.17.0.1:8095:3000"
     environment:
       TZ: ${TZ:-America/New_York}
+      WEBAPP_URL: http://${BASE_HOST_NAME:-localhost}:8095
+      DATABASE_URL: postgresql://${DB_USER_NAME:-formbricks}:${DB_USER_PASS:-changeme_db_password}@formbricks-db:5432/${DB_CREATE_DATABASE_NAME:-formbricks}
+      NEXTAUTH_SECRET: ${APP_SECRET_KEY:-changeme_secret_key_min_32_chars}
+      NEXTAUTH_URL: http://${BASE_HOST_NAME:-localhost}:8095
+      MAIL_FROM: ${APP_ADMIN_EMAIL:-noreply@example.com}
+      SMTP_HOST: ${EMAIL_SERVER_HOST:-172.17.0.1}
+      SMTP_PORT: ${EMAIL_SERVER_PORT:-587}
+      SMTP_USER: ${EMAIL_SERVER_USER:-}
+      SMTP_PASSWORD: ${EMAIL_SERVER_PASS:-}
+      SMTP_SECURE_ENABLED: "0"
     volumes:
-      - ./volumes/data/formbricks:/data
-      - ./volumes/config/formbricks:/config
+      - ./volumes/data/formbricks:/app/uploads
     depends_on:
       - formbricks-db
     healthcheck:
@@ -30,9 +41,10 @@ services:
       retries: 3
 
   formbricks-db:
-    image: postgres:16-alpine
+    image: postgres:latest
+    pull_policy: always
     container_name: formbricks-db
-    restart: unless-stopped
+    restart: always
     logging: *default-logging
     networks:
       - formbricks
@@ -51,4 +63,5 @@ services:
 
 networks:
   formbricks:
+    name: formbricks
     external: false

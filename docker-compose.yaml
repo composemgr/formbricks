@@ -26,6 +26,9 @@ services:
       DATABASE_URL: postgresql://${DB_USER_NAME:-formbricks}:${DB_USER_PASS:-changeme_db_password}@formbricks-db:5432/${DB_CREATE_DATABASE_NAME:-formbricks}
       NEXTAUTH_SECRET: ${APP_SECRET_KEY:-changeme_secret_key_min_32_chars}
       NEXTAUTH_URL: http://${BASE_HOST_NAME:-localhost}:8095
+      ENCRYPTION_KEY: ${APP_SECRET_TOKEN_64:-changeme_encryption_key_must_be_64_hex_chars_openssl_rand_hex_32}
+      CRON_SECRET: ${SECURE_SECRET:-changeme_cron_secret_min_32_chars}
+      REDIS_URL: redis://formbricks-redis:6379
       MAIL_FROM: ${EMAIL_SERVER_MAIL_FROM:-noreply@example.com}
       SMTP_HOST: ${EMAIL_SERVER_HOST:-172.17.0.1}
       SMTP_PORT: ${EMAIL_SERVER_PORT:-587}
@@ -38,6 +41,7 @@ services:
       - ./volumes/data/formbricks:/app/uploads
     depends_on:
       - formbricks-db
+      - formbricks-redis
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000"]
       interval: 30s
@@ -81,6 +85,19 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  formbricks-redis:
+    image: redis:alpine
+    pull_policy: always
+    container_name: formbricks-redis
+    restart: always
+    logging: *default-logging
+    networks:
+      - formbricks
+    volumes:
+      - ./volumes/data/redis/formbricks:/data
+    environment:
+      CONTAINER_NAME: formbricks-redis
 
 networks:
   formbricks:

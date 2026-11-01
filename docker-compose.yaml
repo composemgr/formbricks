@@ -1,33 +1,29 @@
-# nginx proxy address - http://172.17.0.1:8095
+# nginx proxy address - http://172.17.0.1:64177
 
 name: formbricks
 x-logging: &default-logging
-  driver: json-file
   options:
-    max-size: "5m"
-    max-file: "1"
+    max-size: '5m'
+    max-file: '1'
+  driver: json-file
 
 services:
-  formbricks:
+  app:
     image: formbricks/formbricks:latest
-    pull_policy: always
     container_name: formbricks-app
+    domainname: ${BASE_DOMAIN_NAME:-example.com}
+    hostname: ${BASE_HOST_NAME:-$HOSTNAME}
     restart: always
+    pull_policy: always
     logging: *default-logging
-    networks:
-      - formbricks
-      - proxy
-      - cloudflare
-    ports:
-      - "172.17.0.1:8095:3000"
     environment:
       TZ: ${TZ:-America/New_York}
-      WEBAPP_URL: http://${BASE_HOST_NAME:-localhost}:8095
-      DATABASE_URL: postgresql://${DB_USER_NAME:-formbricks}:${DB_USER_PASS:-changeme_db_password}@formbricks-db:5432/${DB_CREATE_DATABASE_NAME:-formbricks}
-      NEXTAUTH_SECRET: ${APP_SECRET_KEY:-changeme_secret_key_min_32_chars}
-      NEXTAUTH_URL: http://${BASE_HOST_NAME:-localhost}:8095
-      ENCRYPTION_KEY: ${APP_SECRET_TOKEN_64:-changeme_encryption_key_must_be_64_hex_chars_openssl_rand_hex_32}
-      CRON_SECRET: ${SECURE_SECRET:-changeme_cron_secret_min_32_chars}
+      WEBAPP_URL: http://${BASE_HOST_NAME:-$HOSTNAME}:64177
+      NEXTAUTH_URL: http://${BASE_HOST_NAME:-$HOSTNAME}:64177
+      DATABASE_URL: postgresql://${DB_USER_NAME:-formbricks}:${DB_USER_PASS:-replace-with-a-random-password}@formbricks-db:5432/${DB_CREATE_DATABASE_NAME:-formbricks}
+      NEXTAUTH_SECRET: ${APP_SECRET_KEY:-replace-with-a-random-password}
+      ENCRYPTION_KEY: ${APP_SECRET_TOKEN_64:-replace-with-a-random-password}
+      CRON_SECRET: ${SECURE_SECRET:-replace-with-a-random-password}
       REDIS_URL: redis://formbricks-redis:6379
       MAIL_FROM: ${EMAIL_SERVER_MAIL_FROM:-noreply@example.com}
       SMTP_HOST: ${EMAIL_SERVER_HOST:-172.17.0.1}
@@ -37,73 +33,69 @@ services:
       SMTP_SECURE_ENABLED: "0"
       CONTAINER_NAME: formbricks-app
       HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
+    ports:
+      - '172.17.0.1:64177:3000'
     volumes:
-      - ./volumes/data/formbricks:/app/uploads
+      - './volumes/data/formbricks:/app/uploads'
     depends_on:
-      - formbricks-db
-      - formbricks-redis
+      formbricks-db:
+        condition: service_healthy
+      formbricks-redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000']
       interval: 30s
       timeout: 10s
       retries: 3
-    labels:
-      - 'traefik.enable=true'
-      - 'cloudflare.enable=true'
-      - 'traefik.docker.network=proxy'
-      - 'cloudflare.service=http://formbricks-app:3000'
-      - 'cloudflare.hostname=formbricks.${CLOUDFLARE_ZONE_NAME:-}'
-      - 'traefik.http.routers.formbricks-app.entrypoints=http'
-      - 'traefik.http.routers.formbricks-app-secure.tls=true'
-      - 'traefik.http.routers.formbricks-app.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
-      - 'traefik.http.middlewares.formbricks-app-https-redirect.redirectscheme.scheme=https'
-      - 'traefik.http.routers.formbricks-app.middlewares=formbricks-app-https-redirect'
-      - 'traefik.http.routers.formbricks-app-secure.entrypoints=https'
-      - 'traefik.http.routers.formbricks-app-secure.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
-      - 'traefik.http.routers.formbricks-app-secure.tls.certresolver=cloudflare'
-      - 'traefik.http.routers.formbricks-app-secure.service=formbricks-app'
-      - 'traefik.http.services.formbricks-app.loadbalancer.server.port=3000'
+    networks:
+      - formbricks
 
   formbricks-db:
     image: postgres:latest
-    pull_policy: always
     container_name: formbricks-db
+    domainname: ${BASE_DOMAIN_NAME:-example.com}
+    hostname: formbricks-db
     restart: always
+    pull_policy: always
     logging: *default-logging
-    networks:
-      - formbricks
     environment:
       TZ: ${TZ:-America/New_York}
       POSTGRES_DB: ${DB_CREATE_DATABASE_NAME:-formbricks}
       POSTGRES_USER: ${DB_USER_NAME:-formbricks}
-      POSTGRES_PASSWORD: ${DB_USER_PASS:-changeme_db_password}
+      POSTGRES_PASSWORD: ${DB_USER_PASS:-replace-with-a-random-password}
       CONTAINER_NAME: formbricks-db
     volumes:
-      - ./volumes/data/db/postgres/formbricks:/var/lib/postgresql/data
+      - './volumes/db/postgres/formbricks:/var/lib/postgresql/data:z'
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - formbricks
 
   formbricks-redis:
     image: redis:alpine
-    pull_policy: always
     container_name: formbricks-redis
+    domainname: ${BASE_DOMAIN_NAME:-example.com}
+    hostname: formbricks-redis
     restart: always
+    pull_policy: always
     logging: *default-logging
+    environment:
+      TZ: ${TZ:-America/New_York}
+      CONTAINER_NAME: formbricks-redis
+    volumes:
+      - './volumes/cache/redis/formbricks:/data:z'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - formbricks
-    volumes:
-      - ./volumes/data/redis/formbricks:/data
-    environment:
-      CONTAINER_NAME: formbricks-redis
 
 networks:
   formbricks:
     name: formbricks
     external: false
-  proxy:
-    external: true
-  cloudflare:
-    external: true
